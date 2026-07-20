@@ -4,4 +4,3 @@ huggingface_hub
 openai
 requests
 numpy
-plotly
