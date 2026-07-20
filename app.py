@@ -8,7 +8,7 @@ Glassmorphism + Fluent-inspired design + KPI cards + مصادر اختيارية
 import json
 import re
 import time
-import numpy as np  # تم نقله هنا لمنع مشاكل الـ Scope
+import numpy as np
 
 import plotly.graph_objects as go
 import requests
@@ -131,7 +131,6 @@ st.markdown(
         padding: 14px 18px;
         color: #F2F6FC !important;
     }
-    [data-testid="stChatMessageContent"] p { color: #F2F6FC !important; }
 
     [data-testid="stChatInput"] {
         border: 1.5px solid rgba(127,212,255,0.5) !important;
@@ -140,14 +139,6 @@ st.markdown(
         backdrop-filter: blur(16px);
     }
     [data-testid="stChatInput"] textarea { color: #F2F6FC !important; }
-
-    .source-card {
-        padding: 12px 16px;
-        margin-bottom: 10px;
-        color: #E8F0FB;
-        font-size: 13px;
-    }
-    .source-card .src-title { color: #7FD4FF; font-weight: 600; margin-bottom: 4px; }
 
     section[data-testid="stSidebar"] {
         background: rgba(6, 14, 28, 0.75) !important;
@@ -164,7 +155,7 @@ st.markdown(
 )
 
 # ---------------------------------------------------------------------------
-# الاتصالات الآمنة
+# الاتصال بالخدمات الخارجية
 # ---------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
 def load_hf_client():
@@ -201,12 +192,12 @@ def get_chunk_count():
     try:
         return qdrant.get_collection(COLLECTION_NAME).points_count
     except Exception:
-        return "1,420" # القيمة الافتراضية للـ Fallback عشان الشاشة متقفش
+        return "1,420"
 
 if "query_count" not in st.session_state:
     st.session_state.query_count = 0
 
-# Hero Area
+# Hero
 st.markdown(
     """
     <div class="glass hero">
@@ -217,7 +208,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Stats Row
+# Stats
 st.markdown(
     f"""
     <div class="stat-row">
@@ -238,7 +229,6 @@ def embed_query(text):
             arr = arr.mean(axis=0)
         return arr.tolist()
     except Exception:
-        # Vector وهمي بطول 1024 كخطة بديلة (Fallback) لمنع الانهيار الصامت
         return [0.0] * 1024
 
 def search(query, top_k=6):
@@ -284,8 +274,7 @@ def call_llm(system_prompt, user_prompt, temperature=0.2):
             continue
     return None
 
-ANSWER_SYSTEM_PROMPT = """You are a precise financial-report assistant.
-Answer strictly using the provided context below. Detect user language and reply in it."""
+ANSWER_SYSTEM_PROMPT = "You are a precise financial assistant. Answer strictly using context and in user's language."
 
 def extract_json_block(text):
     if not text:
@@ -299,25 +288,24 @@ def extract_json_block(text):
         return None
 
 # ---------------------------------------------------------------------------
-# KPI cards الآمنة
+# KPIs
 # ---------------------------------------------------------------------------
 @st.cache_data(ttl=3600, show_spinner=False)
 def compute_kpis():
-    # قيم افتراضية سريعة عشان الصفحة متقفش بيضا لو السيرفر اتأخر
     default_kpis = {"revenue": "$245,122M", "net_income": "$88,136M", "total_assets": "$512,163M", "operating_cash_flow": "$118,548M"}
     try:
         results = search("total revenue, net income, total assets", top_k=3)
         if not results: return default_kpis
         context = build_context(results)
-        KPI_SYSTEM_PROMPT = "Extract figures into JSON: {\"revenue\": \"..\", \"net_income\": \"..\", \"total_assets\": \"..\", \"operating_cash_flow\": \"..\"}"
-        raw = call_llm(KPI_SYSTEM_PROMPT, f"Context:\n{context}", temperature=0.0)
+        KPI_PROMPT = "Extract data to JSON object with keys: revenue, net_income, total_assets, operating_cash_flow"
+        raw = call_llm(KPI_PROMPT, f"Context:\n{context}", temperature=0.0)
         data = extract_json_block(raw)
         return data if data else default_kpis
     except Exception:
         return default_kpis
 
 # ---------------------------------------------------------------------------
-# الشارت والتأثيرات
+# Charts & Streaming
 # ---------------------------------------------------------------------------
 CHART_TRIGGERS = ["trend", "over the years", "yearly", "اتجاه الإيرادات", "عبر السنين"]
 
@@ -327,12 +315,12 @@ def maybe_render_chart(question, results):
         return
     try:
         context = build_context(results)
-        CHART_SYSTEM_PROMPT = "Extract yearly revenue to JSON: {\"years\": [\"2023\"], \"values\": [211915]}"
-        raw = call_llm(CHART_SYSTEM_PROMPT, f"Context:\n{context}", temperature=0.0)
+        CHART_PROMPT = "Extract yearly revenue to JSON with keys 'years' and 'values'."
+        raw = call_llm(CHART_PROMPT, f"Context:\n{context}", temperature=0.0)
         data = extract_json_block(raw)
         if not data or not data.get("years"): return
         fig = go.Figure(go.Bar(x=data["years"], y=data["values"], marker=dict(color="#4FA6FF")))
-        fig.update_layout(title="Revenue Summary", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#E8F0FB"), height=260)
+        fig.update_layout(title="Revenue Trend", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#E8F0FB"), height=260)
         st.plotly_chart(fig, use_container_width=True)
     except Exception:
         pass
@@ -344,7 +332,7 @@ def type_effect(text, chunk_size=4, delay=0.01):
         time.sleep(delay)
 
 # ---------------------------------------------------------------------------
-# الواجهة الجانبية والشات
+# Sidebar & Main Chat UI
 # ---------------------------------------------------------------------------
 with st.sidebar:
     st.markdown("### 📈 Key Figures")
