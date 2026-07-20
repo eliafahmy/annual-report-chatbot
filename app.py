@@ -456,7 +456,8 @@ def type_effect(text, chunk_size=4, delay=0.015):
 # ---------------------------------------------------------------------------
 with st.sidebar:
     st.markdown("### 📈 Key Figures")
-    kpis = compute_kpis()
+    #kpis = compute_kpis()
+    kpis = {}
     labels = {
         "revenue": "Revenue", "net_income": "Net Income",
         "total_assets": "Total Assets", "operating_cash_flow": "Cash Flow",
