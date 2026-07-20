@@ -1,7 +1,0 @@
-streamlit
-qdrant-client
-huggingface_hub
-openai
-requests
-numpy
-plotly
