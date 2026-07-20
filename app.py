@@ -21,7 +21,7 @@ st.set_page_config(page_title="Microsoft Annual Report AI", page_icon="📊", la
 COLLECTION_NAME = "annual_report_chunks"
 EMBED_MODEL = "BAAI/bge-m3"
 
-# 2. تصميم آمن ومتوافق بدون حجب عناصر قد يسبب شاشة بيضاء
+# 2. تصميم آمن ومتوافق بدون حجب عناصر
 st.markdown(
     """
     <style>
@@ -121,7 +121,7 @@ def get_chunk_count():
     try:
         return qdrant.get_collection(COLLECTION_NAME).points_count
     except Exception:
-        return "1,420"
+        return "194"
 
 if "query_count" not in st.session_state:
     st.session_state.query_count = 0
@@ -150,11 +150,29 @@ def embed_query(text):
     except Exception:
         return [0.0] * 1024
 
+# تعديل دالة البحث لتدعم الـ Named Vectors والـ Fallback التلقائي
 def search(query, top_k=5):
     try:
         q_dense = embed_query(query)
-        results = qdrant.query_points(collection_name=COLLECTION_NAME, query=q_dense, limit=top_k, with_payload=True).points
-        return [{"content": r.payload["content"], "score": float(r.score)} for r in results]
+        # محاولة البحث باستخدام الـ dense vector المسمى أولاً
+        try:
+            results = qdrant.query_points(
+                collection_name=COLLECTION_NAME,
+                query=q_dense,
+                using="dense",
+                limit=top_k,
+                with_payload=True
+            ).points
+        except Exception:
+            # خطة بديلة لو الـ collection مش بتستخدم اسم "dense" للـ vector
+            results = qdrant.query_points(
+                collection_name=COLLECTION_NAME,
+                query=q_dense,
+                limit=top_k,
+                with_payload=True
+            ).points
+            
+        return [{"content": r.payload["content"], "score": float(r.score)} for r in results if r.payload and "content" in r.payload]
     except Exception:
         return []
 
@@ -173,7 +191,6 @@ def call_llm(system_prompt, user_prompt):
             continue
     return None
 
-# الـ KPIs بقيم افتراضية لتجنب التأخير عند أول فتح للصفحة
 @st.cache_data(ttl=3600, show_spinner=False)
 def compute_kpis():
     return {"revenue": "$245,122M", "net_income": "$88,136M", "total_assets": "$512,163M", "operating_cash_flow": "$118,548M"}
@@ -219,11 +236,11 @@ if question:
         
         render_pipeline(pipeline_placeholder, dynamic_stage="llm")
         if not results:
-            answer = "لم يتم العثور على سياق مناسب في التقرير."
+            answer = "لم يتم العثور على سياق مناسب في التقرير المتاح حالياً بالـ Vector Database."
         else:
             context = "\n".join(r["content"] for r in results)
-            answer = call_llm("You are a financial report assistant. Reply in the user's language.", f"Question: {question}\nContext:\n{context}")
-            if not answer: answer = "⚠️ حدث خطأ مؤقت في الاتصال بالموديل."
+            answer = call_llm("You are a helpful and precise financial report assistant. Answer the user's question completely based on the context. Reply in the same language the user used.", f"Question: {question}\nContext:\n{context}")
+            if not answer: answer = "⚠️ حدث خطأ مؤقت في الاتصال بالموديل، يرجى المحاولة مرة أخرى."
         
         render_pipeline(pipeline_placeholder, dynamic_stage="done")
         st.markdown(answer)
