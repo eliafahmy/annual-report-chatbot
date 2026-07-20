@@ -1,5 +1,5 @@
 """
-Microsoft Annual Report AI — Copilot Premium Masterpiece
+Microsoft Annual Report AI — Ultimate Theme & Input Fix
 =========================================================
 """
 
@@ -25,7 +25,7 @@ st.set_page_config(
 COLLECTION_NAME = "annual_report_chunks"
 EMBED_MODEL = "BAAI/bge-m3"
 
-# 2. هندسة التصميم والألوان (تأمين ظهور نصوص الـ Sidebar بنسبة 100%)
+# 2. هندسة التصميم والألوان - إزالة الحواف البيضاء تماماً وتعديل الـ Input Text
 st.markdown(
     """
     <style>
@@ -35,15 +35,20 @@ st.markdown(
         font-family: 'Segoe UI', 'Tajawal', sans-serif; 
     }
     
-    /* تأثير الـ Mesh & Radial Gradient الفخم للخلفية */
-    .stApp {
-        background: radial-gradient(circle at top, #1e3a8a 0%, #0f172a 60%, #020617 100%);
-        color: #F8FAFC;
+    /* تثبيت الخلفية على كل عناصر الصفحة والـ Containers لمنع أي حواف بيضاء */
+    .stApp, [data-testid="stHeader"], [data-testid="stBottom"], [data-testid="stAppViewContainer"] {
+        background: radial-gradient(circle at top, #1e3a8a 0%, #0f172a 60%, #020617 100%) !important;
+        color: #F8FAFC !important;
+    }
+
+    /* تلوين شريط التمرير والحواف الإضافية السفلى */
+    [data-testid="stBottomBlockContainer"] {
+        background: transparent !important;
     }
 
     /* إجبار نصوص الـ Sidebar بالكامل على الظهور بلون أبيض واضح جداً */
     [data-testid="stSidebar"] {
-        background-color: rgba(15, 23, 42, 0.85) !important;
+        background-color: rgba(15, 23, 42, 0.9) !important;
         backdrop-filter: blur(20px);
         border-right: 1px solid rgba(255, 255, 255, 0.08);
     }
@@ -55,7 +60,7 @@ st.markdown(
         font-weight: 700;
     }
 
-    /* كروت الزجاج الافتراضية الواجهة (Glassmorphism) */
+    /* كروت الزجاج الاحترافية (Glassmorphism) */
     .glass-card {
         background: rgba(30, 41, 59, 0.45);
         backdrop-filter: blur(16px);
@@ -65,13 +70,6 @@ st.markdown(
         padding: 20px;
         margin-bottom: 15px;
         box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-    
-    .glass-card:hover {
-        transform: translateY(-2px);
-        border-color: rgba(127, 212, 255, 0.3);
-        box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
     }
 
     .ms-logo {
@@ -90,10 +88,9 @@ st.markdown(
         font-weight: 700;
         color: #FFFFFF;
         text-align: center;
-        letter-spacing: -0.5px;
     }
 
-    /* كروت المؤشرات الجانبية الـ KPIs الملونة حديثاً */
+    /* كروت المؤشرات الجانبية */
     .kpi-box {
         padding: 14px;
         margin-bottom: 12px;
@@ -125,7 +122,6 @@ st.markdown(
         border-radius: 12px;
         padding: 14px;
         margin-top: 10px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     .source-header {
         display: flex;
@@ -136,12 +132,22 @@ st.markdown(
         margin-bottom: 6px;
     }
 
-    /* تحسين الـ Input وجعله عائماً بـ Shadows متناسقة */
+    /* تعديل شامل للـ Input وتغيير لون الخط أثناء الكتابة ليكون أبيض ناصع وواضح جداً */
     div[data-testid="stChatInput"] {
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
         border-radius: 24px !important;
-        border: 1px solid rgba(56, 189, 248, 0.2) !important;
-        background: rgba(30, 41, 59, 0.8) !important;
+        border: 1px solid rgba(56, 189, 248, 0.3) !important;
+        background: #1e293b !important;
+    }
+    
+    div[data-testid="stChatInput"] textarea {
+        color: #FFFFFF !important;
+        font-size: 15px !important;
+    }
+    
+    /* تغيير لون الـ Placeholder (النص المؤقت المكتوب بالداخل) */
+    div[data-testid="stChatInput"] textarea::placeholder {
+        color: #94A3B8 !important;
     }
     </style>
     """,
@@ -208,10 +214,10 @@ def search_rag(query, top_k=3):
     except Exception:
         return []
 
-# 5. بناء واجهة التفاعل (UI) الهيدر الرئيسي للمشروع
+# 5. بناء واجهة التفاعل (UI)
 st.markdown('<div class="glass-card"><div class="hero-title"><span class="ms-logo"></span>Microsoft Annual Report AI</div><div style="text-align:center; color:#94A3B8; font-size:14px; margin-top:4px;">Ask anything about the report — Fluent RAG System</div></div>', unsafe_allow_html=True)
 
-# 8️⃣ شريط الإحصائيات العلوي المطور (Statistics Panel)
+# شريط الإحصائيات العلوي
 chunks = get_chunk_count()
 st.markdown(
     f"""
@@ -225,7 +231,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# 6. الـ Sidebar الجانبي (ألوان واضحة تماماً وظاهرة)
+# 6. الـ Sidebar الجانبي الملون
 with st.sidebar:
     st.markdown("### 📊 Key Figures")
     st.markdown('<div class="kpi-box"><div class="kpi-title">Revenue (FY25)</div><div class="kpi-val">$245,122 M</div></div>', unsafe_allow_html=True)
@@ -234,23 +240,19 @@ with st.sidebar:
     st.markdown('<div class="kpi-box"><div class="kpi-title">Operating Cash Flow</div><div class="kpi-val">$118,548 M</div></div>', unsafe_allow_html=True)
     
     st.markdown("---")
-    
-    # جزء الـ RAG Pipeline المطلوب لتبسيط الشرح وإبهار أي دكتور
     st.markdown("### 🔄 RAG Pipeline Status")
     pipeline_steps = ["PDF Loaded", "OCR Processed", "Semantic Chunking", "Vector Embedding", "Vector Search Retrieval", "LLM Response"]
     for step in pipeline_steps:
         st.markdown(f'<div class="pipeline-step"><span>{step}</span><span class="pipeline-success">✔</span></div>', unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("### 💡 Suggested Queries")
+    st.markdown("### 💡 Suggested Questions")
     st.write("• What is the total revenue for FY25?\n\n• Show me the revenue trend over the years.\n\n• Summarize the performance of Intelligent Cloud.")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# عرض المحادثات السابقة
 for msg in st.session_state.messages:
-    # 5️⃣ استخدام لوجو مايكروسوفت كـ Avatar احترافي للـ Assistant
     avatar_icon = "🤖" if msg["role"] == "user" else "https://img.icons8.com/color/48/microsoft.png"
     with st.chat_message(msg["role"], avatar=avatar_icon):
         st.markdown(msg["content"])
@@ -268,7 +270,7 @@ for msg in st.session_state.messages:
                     unsafe_allow_html=True
                 )
 
-# 6️⃣ استقبال مساهمة المستخدم من الـ Floating Input المطور بـ Shadow
+# Input الحوار الرئيسي المطور
 question = st.chat_input("Ask Microsoft Copilot RAG...")
 
 if question:
@@ -277,10 +279,7 @@ if question:
     with st.chat_message("user", avatar="🤖"):
         st.markdown(question)
 
-    # استخدام لوجو مايكروسوفت عند كتابة الرد الجديد
     with st.chat_message("assistant", avatar="https://img.icons8.com/color/48/microsoft.png"):
-        
-        # 7️⃣ تطبيق تأثير الـ Thinking المطلوب قبل الرد
         message_placeholder = st.empty()
         message_placeholder.markdown("*Thinking...* 🧠")
         
@@ -314,7 +313,6 @@ if question:
                         timeout=8
                     )
                     
-                    # تأثير الـ Typing Effect الحقيقي المتدفق كلمة بكلمة
                     for chunk in response_stream:
                         if chunk.choices[0].delta.content:
                             full_response += chunk.choices[0].delta.content
@@ -357,7 +355,7 @@ if question:
                 st.plotly_chart(fig, use_container_width=True)
                 chart_obj = fig
 
-            # عرض الـ Source Cards التفاعلية أسفل الإجابة
+            # عرض الـ Source Cards
             st.markdown("#### 📄 Verification Sources")
             for src in results:
                 st.markdown(
