@@ -1,16 +1,18 @@
 """
-شات بوت RAG على التقرير السنوي — واجهة Streamlit
-==================================================
-البايبلاين: bge-m3 (dense+sparse) -> Qdrant (Hybrid Search) -> CrossEncoder Reranker
+شات بوت RAG على التقرير السنوي — واجهة Streamlit (نسخة خفيفة)
+================================================================
+البايبلاين: bge-m3 embeddings عن طريق Hugging Face Inference API (مش محلي)
+           -> Qdrant (Dense Search) -> BGE Reranker عن طريق HF Inference API (اختياري)
            -> موديل نصي مجاني على OpenRouter -> إجابة + مصادر
+
+ملحوظة: النسخة دي مفيهاش أي موديلات تتحمّل محليًا (لا torch ولا transformers)،
+عشان تشتغل مرتاح جدًا على الموارد المحدودة لـ Streamlit Community Cloud.
 """
 
-import json
 import requests
 import streamlit as st
 from qdrant_client import QdrantClient, models
-from FlagEmbedding import BGEM3FlagModel
-from sentence_transformers import CrossEncoder
+from huggingface_hub import InferenceClient
 from openai import OpenAI
 
 # ---------------------------------------------------------------------------
@@ -19,39 +21,35 @@ from openai import OpenAI
 st.set_page_config(page_title="مساعد التقرير السنوي", page_icon="📊", layout="centered")
 
 COLLECTION_NAME = "annual_report_chunks"
+EMBED_MODEL = "BAAI/bge-m3"
+RERANK_MODEL = "BAAI/bge-reranker-v2-m3"
 
 
 # ---------------------------------------------------------------------------
-# تحميل الموديلات والاتصالات (بتتحمل مرة واحدة بس وتفضل محفوظة في الكاش)
+# الاتصالات (بتتعمل مرة واحدة بس وتفضل محفوظة في الكاش)
 # ---------------------------------------------------------------------------
-@st.cache_resource(show_spinner="جاري تحميل موديل الـ Embedding (bge-m3)...")
-def load_embed_model():
-    return BGEM3FlagModel("BAAI/bge-m3", use_fp16=False)
-
-
-@st.cache_resource(show_spinner="جاري تحميل موديل الـ Reranker...")
-def load_reranker():
-    return CrossEncoder("BAAI/bge-reranker-v2-m3", max_length=1024, trust_remote_code=False)
+@st.cache_resource(show_spinner=False)
+def load_hf_client():
+    return InferenceClient(api_key=st.secrets["HF_TOKEN"])
 
 
 @st.cache_resource(show_spinner="جاري الاتصال بـ Qdrant...")
 def load_qdrant_client():
-    url = st.secrets["qdranturl"]
-    api_key = st.secrets["qdrantapi"]
-    return QdrantClient(url=url, api_key=api_key)
+    return QdrantClient(url=st.secrets["qdranturl"], api_key=st.secrets["qdrantapi"])
 
 
 @st.cache_resource(show_spinner=False)
 def load_llm_client():
-    return OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=st.secrets["OPENROUTER_API_KEY"],
-    )
+    return OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
+
+
+hf_client = load_hf_client()
+qdrant = load_qdrant_client()
+llm_client = load_llm_client()
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_live_free_models(limit=8):
-    """يجيب أحدث قايمة موديلات مجانية فعليًا من OpenRouter وقت التشغيل."""
     try:
         resp = requests.get("https://openrouter.ai/api/v1/models", timeout=15)
         data = resp.json()["data"]
@@ -66,33 +64,51 @@ def get_live_free_models(limit=8):
         return []
 
 
-embed_model = load_embed_model()
-reranker = load_reranker()
-qdrant = load_qdrant_client()
-llm_client = load_llm_client()
-
-
 # ---------------------------------------------------------------------------
-# دوال البحث والإجابة (نفس منطق النوتبوك)
+# البحث: embedding عن طريق HF Inference API + بحث Dense في Qdrant + reranking اختياري
 # ---------------------------------------------------------------------------
-def sparse_dict_to_qdrant(sparse_weights):
-    indices = [int(k) for k in sparse_weights.keys()]
-    values = [float(v) for v in sparse_weights.values()]
-    return models.SparseVector(indices=indices, values=values)
+def embed_query(text):
+    """يجيب dense embedding لسؤال المستخدم عن طريق HF Inference API (نفس موديل bge-m3
+    اللي استخدمناه في رفع البيانات، فالمقارنة صحيحة)."""
+    vec = hf_client.feature_extraction(text, model=EMBED_MODEL)
+    # ممكن يرجع list of lists (لو الموديل رجّع per-token) أو vector واحد، بناخد أول صف لو الحالة الأولى
+    try:
+        import numpy as np
+        arr = np.array(vec)
+        if arr.ndim == 2:
+            arr = arr.mean(axis=0)  # احتياط: لو رجع per-token، ناخد المتوسط
+        return arr.tolist()
+    except Exception:
+        return list(vec)
 
 
-def search(query, top_k=5, candidates=20):
-    q_out = embed_model.encode([query], return_dense=True, return_sparse=True)
-    q_dense = q_out["dense_vecs"][0].tolist()
-    q_sparse = sparse_dict_to_qdrant(q_out["lexical_weights"][0])
+def rerank(query, results):
+    """يحاول يعمل rerank عن طريق HF Inference API. لو فشل (الموديل مش متاح
+    على الـ serverless API دلوقتي)، بيرجّع نفس الترتيب الأصلي من غير ما يوقف التطبيق."""
+    try:
+        scored = []
+        for r in results:
+            out = hf_client.text_classification(
+                text=query,
+                text_pair=r.payload["content"][:2000],
+                model=RERANK_MODEL,
+            )
+            score = out[0].score if isinstance(out, list) else out.score
+            scored.append((r, score))
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored
+    except Exception:
+        # فشل الـ reranker؟ نكمل بترتيب الـ Qdrant الأصلي (score بتاعه هو الأساس)
+        return [(r, r.score) for r in results]
+
+
+def search(query, top_k=5, candidates=15):
+    q_dense = embed_query(query)
 
     results = qdrant.query_points(
         collection_name=COLLECTION_NAME,
-        prefetch=[
-            models.Prefetch(query=q_dense, using="dense", limit=candidates),
-            models.Prefetch(query=q_sparse, using="sparse", limit=candidates),
-        ],
-        query=models.FusionQuery(fusion=models.Fusion.RRF),
+        query=q_dense,
+        using="dense",
         limit=candidates,
         with_payload=True,
     ).points
@@ -100,10 +116,7 @@ def search(query, top_k=5, candidates=20):
     if not results:
         return []
 
-    pairs = [[query, r.payload["content"]] for r in results]
-    scores = reranker.predict(pairs)
-
-    reranked = sorted(zip(results, scores), key=lambda x: x[1], reverse=True)[:top_k]
+    reranked = rerank(query, results)[:top_k]
     return [
         {
             "score": float(score),
@@ -116,6 +129,9 @@ def search(query, top_k=5, candidates=20):
     ]
 
 
+# ---------------------------------------------------------------------------
+# توليد الإجابة
+# ---------------------------------------------------------------------------
 def build_context(results):
     blocks = []
     for i, r in enumerate(results, start=1):
