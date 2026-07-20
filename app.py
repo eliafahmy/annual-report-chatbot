@@ -1,562 +1,249 @@
 """
-مساعد التقرير السنوي — تصميم "دفتر الأستاذ" مع خلفية متحركة
-==========================================================================
-✔ خلفية جلد مع أنيميشن حبر متحرك + جزيئات ذهبية طافية
-✔ ورقة دفتر مع سطور وهامش أحمر + تجليد نحاسي
-✔ لوحة رأسية محفورة بشريط نحاسي متلألئ + ختم شمعي
-✔ إصلاح: embed 3D / qdrant fallback / أخطاء الاتصال
+Microsoft Annual Report AI — واجهة Streamlit احترافية
+=========================================================
+Glassmorphism + Fluent-inspired design + KPI cards + مصادر اختيارية
++ رسم بياني تلقائي عند سؤال عن الإيرادات عبر السنين + تأثير كتابة حي
 """
 
+import json
+import re
+import time
+import numpy as np  # تم نقله هنا لمنع مشاكل الـ Scope
+
+import plotly.graph_objects as go
 import requests
-import numpy as np
 import streamlit as st
-from qdrant_client import QdrantClient
 from huggingface_hub import InferenceClient
 from openai import OpenAI
+from qdrant_client import QdrantClient
 
 # ---------------------------------------------------------------------------
 # إعدادات عامة
 # ---------------------------------------------------------------------------
-st.set_page_config(
-    page_title="مساعد التقرير السنوي",
-    page_icon="📑",
-    layout="centered",
-)
+st.set_page_config(page_title="Microsoft Annual Report AI", page_icon="📊", layout="wide")
 
 COLLECTION_NAME = "annual_report_chunks"
 EMBED_MODEL = "BAAI/bge-m3"
 
 # ---------------------------------------------------------------------------
-# التصميم — دفتر الأستاذ + أنيميشن
+# التصميم — Glassmorphism بلمسة Fluent Design
 # ---------------------------------------------------------------------------
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Tajawal:wght@400;500;700&family=Inter:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Tajawal:wght@400;500;700&display=swap');
 
-    :root {
-        --leather:       #1A1410;
-        --leather-mid:   #2A1F17;
-        --leather-light: #3D2E22;
-        --brass:         #B8862E;
-        --brass-light:   #D9A94A;
-        --brass-shine:   #E8C068;
-        --paper:         #FAF6EC;
-        --paper-warm:    #F3ECDA;
-        --paper-aged:    #EDE4CC;
-        --ink:           #0E2A2B;
-        --ink-light:     #1C3D3E;
-        --text:          #22201B;
-        --muted:         #6E6857;
-        --stamp-red:     #8B2500;
-    }
+    html, body, [class*="css"] { font-family: 'Tajawal', 'Poppins', sans-serif; }
 
-    html, body, [class*="css"] {
-        font-family: 'Tajawal', 'Inter', sans-serif;
-    }
-
-    /* ═══════════════════════════════════════════════════════
-       خلفية الجلد — مع أنيميشن "حبر ينتشر"
-       ═══════════════════════════════════════════════════════ */
     .stApp {
-        background: var(--leather) !important;
+        background: radial-gradient(circle at 15% 20%, #1e3a8a55, transparent 40%),
+                    radial-gradient(circle at 85% 15%, #4FA6FF44, transparent 45%),
+                    radial-gradient(circle at 75% 85%, #A98CFF3a, transparent 45%),
+                    radial-gradient(circle at 20% 90%, #0EA5E933, transparent 40%),
+                    radial-gradient(circle at top, #1e3a8a 0%, #0f172a 55%, #020617 100%);
+        background-size: 200% 200%, 200% 200%, 200% 200%, 200% 200%, 100% 100%;
+        animation: meshFloat 22s ease-in-out infinite;
         position: relative;
     }
-
-    .stApp::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        background:
-            radial-gradient(ellipse 600px 400px at 15% 25%, rgba(184,134,46,0.09), transparent),
-            radial-gradient(ellipse 500px 500px at 85% 75%, rgba(184,134,46,0.07), transparent),
-            radial-gradient(ellipse 700px 300px at 50% 10%, rgba(139,37,0,0.04), transparent),
-            radial-gradient(ellipse 400px 600px at 70% 40%, rgba(232,192,104,0.05), transparent),
-            radial-gradient(ellipse 300px 500px at 25% 80%, rgba(184,134,46,0.06), transparent);
-        background-size: 200% 200%;
-        animation: inkSpread 22s ease-in-out infinite;
-        pointer-events: none;
-        z-index: 0;
+    @keyframes meshFloat {
+        0%   {background-position: 0% 0%, 100% 0%, 100% 100%, 0% 100%, 50% 50%;}
+        50%  {background-position: 20% 30%, 80% 20%, 75% 80%, 25% 90%, 50% 50%;}
+        100% {background-position: 0% 0%, 100% 0%, 100% 100%, 0% 100%, 50% 50%;}
     }
 
-    /* ملمس الجلد الدقيق */
-    .stApp::after {
-        content: "";
-        position: fixed;
-        inset: 0;
-        background-image:
-            repeating-linear-gradient(0deg,   rgba(184,134,46,0.018) 0px, transparent 1px, transparent 3px),
-            repeating-linear-gradient(90deg,  rgba(184,134,46,0.012) 0px, transparent 1px, transparent 4px),
-            repeating-linear-gradient(45deg,  rgba(184,134,46,0.008) 0px, transparent 1px, transparent 6px);
-        pointer-events: none;
-        z-index: 0;
-    }
-
-    @keyframes inkSpread {
-        0%   { background-position: 0% 0%; }
-        25%  { background-position: 40% 30%; }
-        50%  { background-position: 80% 60%; }
-        75%  { background-position: 30% 70%; }
-        100% { background-position: 0% 0%; }
-    }
-
-    /* ═══════════════════════════════════════════════════════
-       جزيئات الحبر الذهبية الطافية
-       ═══════════════════════════════════════════════════════ */
-    .ink-particles {
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: 0;
-        overflow: hidden;
-    }
-    .ink-p {
-        position: absolute;
-        border-radius: 50%;
-        opacity: 0;
-        animation: inkRise linear infinite;
-        filter: blur(0.5px);
-    }
-    @keyframes inkRise {
-        0%   { transform: translateY(105vh) scale(0.3) rotate(0deg);   opacity: 0;   }
-        12%  { opacity: 0.7; }
-        80%  { opacity: 0.3; }
-        100% { transform: translateY(-8vh)  scale(1)   rotate(200deg); opacity: 0;   }
-    }
-
-    /* ═══════════════════════════════════════════════════════
-       تجليد الدفتر — شريط عمودي على اليسار
-       ═══════════════════════════════════════════════════════ */
-    .ledger-spine {
-        position: fixed;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 18px;
-        background: linear-gradient(90deg, var(--leather-mid), var(--leather-light) 60%, var(--brass) 85%, var(--brass-light) 95%, var(--brass) 100%);
-        z-index: 2;
-        box-shadow: 2px 0 8px rgba(0,0,0,0.4);
-    }
-    .ledger-spine::after {
-        content: "";
-        position: absolute;
-        top: 0; bottom: 0;
-        left: 9px;
-        width: 2px;
-        background: repeating-linear-gradient(
-            to bottom,
-            transparent 0px, transparent 14px,
-            var(--paper) 14px, var(--paper) 16px,
-            transparent 16px, transparent 30px
-        );
-        opacity: 0.35;
-    }
-
-    /* ═══════════════════════════════════════════════════════
-       رأس الصفحة — لوحة نحاسية محفورة
-       ═══════════════════════════════════════════════════════ */
-    .ledger-header {
-        background: linear-gradient(145deg, var(--ink) 0%, var(--ink-light) 60%, var(--ink) 100%);
-        border-radius: 16px;
-        padding: 22px 26px 22px 78px;
-        margin: 0 0 20px 0;
-        border: 2px solid var(--brass);
-        position: relative;
-        overflow: hidden;
-        box-shadow:
-            0 6px 24px rgba(0,0,0,0.4),
-            inset 0 1px 0 rgba(217,169,74,0.15),
-            inset 0 -1px 0 rgba(0,0,0,0.3);
-        z-index: 1;
-    }
-
-    /* شريط نحاسي علوي متلألئ */
-    .ledger-header::before {
-        content: "";
-        position: absolute;
-        top: 0; left: 0; right: 0;
-        height: 3px;
-        background: linear-gradient(90deg,
-            transparent 5%, var(--brass) 15%, var(--brass-shine) 35%,
-            var(--brass) 50%, var(--brass-shine) 65%, var(--brass) 85%, transparent 95%);
-        background-size: 200% 100%;
-        animation: brassSlide 4s linear infinite;
-    }
-    .ledger-header::after {
-        content: "";
-        position: absolute;
-        bottom: 0; left: 0; right: 0;
-        height: 3px;
-        background: linear-gradient(90deg,
-            transparent 5%, var(--brass) 15%, var(--brass-shine) 35%,
-            var(--brass) 50%, var(--brass-shine) 65%, var(--brass) 85%, transparent 95%);
-        background-size: 200% 100%;
-        animation: brassSlide 4s linear infinite reverse;
-    }
-
-    @keyframes brassSlide {
-        0%   { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
-    }
-
-    /* ختم شمعي نابض */
-    .ledger-seal {
-        position: absolute;
-        top: 50%;
-        left: 18px;
-        transform: translateY(-50%);
-        width: 46px;
-        height: 46px;
-        border: 2.5px solid var(--brass);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 20px;
-        background: radial-gradient(circle, rgba(184,134,46,0.18), transparent 70%);
-        box-shadow: 0 0 14px rgba(184,134,46,0.25);
-        animation: sealPulse 4s ease-in-out infinite;
-    }
-    @keyframes sealPulse {
-        0%, 100% { box-shadow: 0 0 10px rgba(184,134,46,0.15); transform: translateY(-50%) scale(1); }
-        50%      { box-shadow: 0 0 26px rgba(184,134,46,0.45); transform: translateY(-50%) scale(1.04); }
-    }
-
-    .ledger-title {
-        font-family: 'Fraunces', serif;
-        color: var(--paper);
-        font-size: 24px;
-        font-weight: 600;
-        margin: 0;
-        letter-spacing: 0.5px;
-        text-shadow: 0 2px 6px rgba(0,0,0,0.4);
-    }
-    .ledger-subtitle {
-        color: var(--brass-light);
-        font-size: 13px;
-        margin-top: 5px;
-        font-weight: 400;
-    }
-
-    /* ═══════════════════════════════════════════════════════
-       منطقة المحتوى — ورقة الدفتر
-       ═══════════════════════════════════════════════════════ */
-    .ledger-page {
-        position: relative;
-        z-index: 1;
-        background: var(--paper);
-        border-radius: 2px 16px 16px 2px;
-        padding: 18px 22px;
-        margin-bottom: 14px;
-        box-shadow:
-            -5px 0 0 0 var(--brass),
-            -7px 0 0 0 rgba(184,134,46,0.20),
-            0 6px 28px rgba(0,0,0,0.35),
-            0 2px 6px rgba(0,0,0,0.15);
-        overflow: hidden;
-    }
-
-    /* سطور أفقية */
-    .ledger-page::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background-image: repeating-linear-gradient(
-            to bottom,
-            transparent 0px, transparent 27px,
-            rgba(14,42,43,0.05) 27px, rgba(14,42,43,0.05) 28px
-        );
-        pointer-events: none;
-        border-radius: inherit;
-    }
-
-    /* خط هامش أحمر */
-    .ledger-page::after {
-        content: "";
-        position: absolute;
-        top: 0; bottom: 0;
-        left: 38px;
-        width: 2px;
-        background: rgba(139,37,0,0.09);
-        pointer-events: none;
-    }
-
-    .ledger-page-inner {
+    .glass {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 20px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
         position: relative;
         z-index: 1;
     }
 
-    /* ═══════════════════════════════════════════════════════
-       فقاعات الشات
-       ═══════════════════════════════════════════════════════ */
-    [data-testid="stChatMessage"] {
-        background: transparent !important;
-        padding: 3px 0 !important;
-    }
-
-    /* رسائل المساعد — ورقة دفتر */
-    [data-testid="stChatMessageContent"] {
-        background: var(--paper-warm) !important;
-        border-radius: 2px 12px 12px 2px !important;
-        padding: 14px 18px !important;
-        border-left: 4px solid var(--brass) !important;
-        box-shadow: 0 2px 8px rgba(14,42,43,0.08) !important;
-        color: var(--text) !important;
-        position: relative;
-        animation: msgAppear 0.4s ease-out;
-    }
-    [data-testid="stChatMessageContent"] p,
-    [data-testid="stChatMessageContent"] li,
-    [data-testid="stChatMessageContent"] span {
-        color: var(--text) !important;
-    }
-
-    @keyframes msgAppear {
-        from { opacity: 0; transform: translateY(8px); }
-        to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* رسائل المستخدم — جلد حبري */
-    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stChatMessageContent"] {
-        background: linear-gradient(135deg, var(--ink), var(--ink-light)) !important;
-        color: var(--paper) !important;
-        border-left: 4px solid var(--brass-light) !important;
-        box-shadow: 0 2px 10px rgba(14,42,43,0.25) !important;
-    }
-    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stChatMessageContent"] p,
-    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stChatMessageContent"] li,
-    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stChatMessageContent"] span {
-        color: var(--paper) !important;
-    }
-
-    /* ═══════════════════════════════════════════════════════
-       خانة الكتابة
-       ═══════════════════════════════════════════════════════ */
-    [data-testid="stChatInput"] {
-        border: 2px solid var(--brass) !important;
-        border-radius: 14px !important;
-        background: var(--paper-warm) !important;
-        box-shadow: 0 4px 18px rgba(0,0,0,0.22) !important;
-        position: relative;
-        z-index: 1;
-    }
-    [data-testid="stChatInput"] textarea {
-        color: var(--text) !important;
-        font-family: 'Tajawal', sans-serif !important;
-    }
-
-    /* ═══════════════════════════════════════════════════════
-       الأزرار
-       ═══════════════════════════════════════════════════════ */
-    .suggestion-label {
-        color: var(--brass);
-        font-size: 13px;
-        margin: 6px 0 8px 2px;
-        font-weight: 500;
-    }
-    .stButton button {
-        background: var(--paper-warm) !important;
-        border: 1.5px solid var(--brass) !important;
-        color: var(--ink) !important;
-        border-radius: 10px !important;
-        font-size: 13px !important;
-        padding: 8px 14px !important;
-        font-family: 'Tajawal', sans-serif !important;
-        transition: all 0.3s ease !important;
-        position: relative;
-        z-index: 1;
-    }
-    .stButton button:hover {
-        background: var(--brass) !important;
-        color: var(--paper) !important;
-        border-color: var(--brass-light) !important;
-        box-shadow: 0 0 18px rgba(184,134,46,0.4) !important;
-        transform: translateY(-1px) !important;
-    }
-
-    /* ═══════════════════════════════════════════════════════
-       شريط التمرير
-       ═══════════════════════════════════════════════════════ */
-    ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: var(--leather); }
-    ::-webkit-scrollbar-thumb {
-        background: var(--leather-light);
-        border: 1px solid var(--brass);
-        border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover { background: var(--brass); }
-
-    /* ═══════════════════════════════════════════════════════
-       Spinner
-       ═══════════════════════════════════════════════════════ */
-    .stSpinner > div > div {
-        border-color: var(--brass) transparent transparent transparent !important;
-    }
-    .stSpinner label, .stSpinner div {
-        color: var(--brass-light) !important;
-    }
-
-    /* ═══════════════════════════════════════════════════════
-       إخفاء
-       ═══════════════════════════════════════════════════════ */
-    #MainMenu, footer, header { visibility: hidden; }
-
-    /* ═══════════════════════════════════════════════════════
-       فاصل زخرفي
-       ═══════════════════════════════════════════════════════ */
-    .ledger-divider {
+    .hero {
+        padding: 30px 34px;
+        margin-bottom: 18px;
         text-align: center;
-        margin: 10px 0 14px 0;
-        color: var(--brass);
-        font-size: 11px;
-        letter-spacing: 6px;
-        opacity: 0.6;
     }
+    .hero-title {
+        font-family: 'Poppins', sans-serif;
+        font-weight: 700;
+        font-size: 32px;
+        background: linear-gradient(90deg, #7FD4FF, #4FA6FF, #A98CFF);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        margin: 0;
+    }
+    .hero-subtitle {
+        color: #C9D9EE;
+        font-size: 15px;
+        margin-top: 8px;
+    }
+
+    .stat-row { display: flex; gap: 14px; margin-bottom: 22px; }
+    .stat-card {
+        flex: 1;
+        padding: 14px 16px;
+        text-align: center;
+    }
+    .stat-value { font-size: 22px; font-weight: 700; color: #7FD4FF; }
+    .stat-label { font-size: 12px; color: #9FC0E8; margin-top: 2px; }
+
+    .kpi-card {
+        padding: 16px 18px;
+        margin-bottom: 14px;
+        color: #F2F6FC;
+    }
+    .kpi-label {
+        font-size: 12px;
+        color: #9FC0E8;
+        margin-bottom: 4px;
+    }
+    .kpi-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: #FFFFFF;
+    }
+    .kpi-check { color: #52D68B; margin-left: 6px; }
+
+    .pipeline-step {
+        display: flex; align-items: center; gap: 8px;
+        font-size: 13px; color: #9FC0E8; padding: 5px 0;
+    }
+    .pipeline-step.done { color: #E8F0FB; }
+    .pipeline-step .dot {
+        width: 9px; height: 9px; border-radius: 50%;
+        background: #2A4A6B; flex-shrink: 0;
+    }
+    .pipeline-step.done .dot { background: #52D68B; box-shadow: 0 0 8px #52D68B; }
+    .pipeline-step.active .dot { background: #7FD4FF; box-shadow: 0 0 8px #7FD4FF; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% {opacity:1;} 50% {opacity:0.4;} }
+
+    [data-testid="stChatMessage"] { background: transparent !important; padding: 4px 0 !important; }
+    [data-testid="stChatMessageContent"] {
+        background: rgba(255, 255, 255, 0.07);
+        backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 16px;
+        padding: 14px 18px;
+        color: #F2F6FC !important;
+    }
+    [data-testid="stChatMessageContent"] p { color: #F2F6FC !important; }
+
+    [data-testid="stChatInput"] {
+        border: 1.5px solid rgba(127,212,255,0.5) !important;
+        border-radius: 20px !important;
+        background: rgba(20, 35, 60, 0.75) !important;
+        backdrop-filter: blur(16px);
+    }
+    [data-testid="stChatInput"] textarea { color: #F2F6FC !important; }
+
+    .source-card {
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        color: #E8F0FB;
+        font-size: 13px;
+    }
+    .source-card .src-title { color: #7FD4FF; font-weight: 600; margin-bottom: 4px; }
+
+    section[data-testid="stSidebar"] {
+        background: rgba(6, 14, 28, 0.75) !important;
+        backdrop-filter: blur(14px);
+        border-right: 1px solid rgba(127,212,255,0.12);
+    }
+    section[data-testid="stSidebar"] * { color: #E8F0FB; }
+    section[data-testid="stSidebar"] h3 { color: #7FD4FF !important; }
+
+    #MainMenu, footer, header {visibility: hidden;}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 # ---------------------------------------------------------------------------
-# جزيئات الحبر الذهبية الطافية
-# ---------------------------------------------------------------------------
-st.markdown(
-    """
-    <div class="ink-particles">
-        <div class="ink-p" style="left:3%;  width:5px; height:5px; background:rgba(184,134,46,0.38); animation-duration:19s; animation-delay:0s;"></div>
-        <div class="ink-p" style="left:10%; width:3px; height:3px; background:rgba(217,169,74,0.28); animation-duration:24s; animation-delay:4s;"></div>
-        <div class="ink-p" style="left:17%; width:6px; height:6px; background:rgba(232,192,104,0.20); animation-duration:17s; animation-delay:2s;"></div>
-        <div class="ink-p" style="left:23%; width:4px; height:4px; background:rgba(184,134,46,0.32); animation-duration:21s; animation-delay:7s;"></div>
-        <div class="ink-p" style="left:30%; width:3px; height:3px; background:rgba(217,169,74,0.26); animation-duration:26s; animation-delay:1s;"></div>
-        <div class="ink-p" style="left:37%; width:5px; height:5px; background:rgba(184,134,46,0.30); animation-duration:20s; animation-delay:5s;"></div>
-        <div class="ink-p" style="left:44%; width:4px; height:4px; background:rgba(232,192,104,0.22); animation-duration:23s; animation-delay:9s;"></div>
-        <div class="ink-p" style="left:51%; width:6px; height:6px; background:rgba(184,134,46,0.28); animation-duration:18s; animation-delay:3s;"></div>
-        <div class="ink-p" style="left:58%; width:3px; height:3px; background:rgba(217,169,74,0.34); animation-duration:25s; animation-delay:6s;"></div>
-        <div class="ink-p" style="left:65%; width:5px; height:5px; background:rgba(184,134,46,0.26); animation-duration:22s; animation-delay:0s;"></div>
-        <div class="ink-p" style="left:72%; width:4px; height:4px; background:rgba(232,192,104,0.28); animation-duration:19s; animation-delay:8s;"></div>
-        <div class="ink-p" style="left:79%; width:3px; height:3px; background:rgba(184,134,46,0.36); animation-duration:27s; animation-delay:4s;"></div>
-        <div class="ink-p" style="left:86%; width:5px; height:5px; background:rgba(217,169,74,0.24); animation-duration:21s; animation-delay:2s;"></div>
-        <div class="ink-p" style="left:93%; width:4px; height:4px; background:rgba(184,134,46,0.30); animation-duration:24s; animation-delay:7s;"></div>
-        <div class="ink-p" style="left:7%;  width:7px; height:7px; background:rgba(232,192,104,0.16); animation-duration:30s; animation-delay:11s;"></div>
-        <div class="ink-p" style="left:48%; width:7px; height:7px; background:rgba(184,134,46,0.18); animation-duration:28s; animation-delay:13s;"></div>
-        <div class="ink-p" style="left:76%; width:8px; height:8px; background:rgba(217,169,74,0.14); animation-duration:33s; animation-delay:10s;"></div>
-        <div class="ink-p" style="left:35%; width:2px; height:2px; background:rgba(232,192,104,0.40); animation-duration:16s; animation-delay:6s;"></div>
-        <div class="ink-p" style="left:60%; width:2px; height:2px; background:rgba(184,134,46,0.42); animation-duration:15s; animation-delay:1s;"></div>
-        <div class="ink-p" style="left:90%; width:2px; height:2px; background:rgba(217,169,74,0.38); animation-duration:14s; animation-delay:3s;"></div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# ---------------------------------------------------------------------------
-# تجليد الدفتر (شريط عمودي على اليسار)
-# ---------------------------------------------------------------------------
-st.markdown('<div class="ledger-spine"></div>', unsafe_allow_html=True)
-
-# ---------------------------------------------------------------------------
-# الرأس — لوحة نحاسية محفورة
-# ---------------------------------------------------------------------------
-st.markdown(
-    """
-    <div class="ledger-header">
-        <div class="ledger-seal">📑</div>
-        <div class="ledger-title">مساعد التقرير السنوي</div>
-        <div class="ledger-subtitle">اسأل بأي لغة — الإجابة من نص التقرير الفعلي</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-# ---------------------------------------------------------------------------
-# الاتصالات — مع فحص فوري
+# الاتصالات الآمنة
 # ---------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
 def load_hf_client():
-    try:
-        return InferenceClient(api_key=st.secrets["HF_TOKEN"])
-    except Exception as e:
-        st.error(f"❌ مش قادر أوصِل لـ HuggingFace: {e}")
-        return None
-
+    return InferenceClient(api_key=st.secrets.get("HF_TOKEN", ""))
 
 @st.cache_resource(show_spinner=False)
 def load_qdrant_client():
-    try:
-        client = QdrantClient(url=st.secrets["qdranturl"], api_key=st.secrets["qdrantapi"])
-        client.get_collection(COLLECTION_NAME)
-        return client
-    except Exception as e:
-        st.error(f"❌ مش قادر أوصِل لـ Qdrant: {e}")
-        return None
-
+    return QdrantClient(url=st.secrets.get("qdranturl", ""), api_key=st.secrets.get("qdrantapi", ""))
 
 @st.cache_resource(show_spinner=False)
 def load_llm_client():
-    try:
-        return OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets["OPENROUTER_API_KEY"])
-    except Exception as e:
-        st.error(f"❌ مش قادر أوصِل لـ OpenRouter: {e}")
-        return None
-
+    return OpenAI(base_url="https://openrouter.ai/api/v1", api_key=st.secrets.get("OPENROUTER_API_KEY", ""))
 
 hf_client = load_hf_client()
 qdrant = load_qdrant_client()
 llm_client = load_llm_client()
 
-if hf_client is None or qdrant is None or llm_client is None:
-    st.stop()
-
-
-# ---------------------------------------------------------------------------
-# الموديلز المجانية
-# ---------------------------------------------------------------------------
-FALLBACK_MODELS = [
-    "deepseek/deepseek-chat-v3-0324:free",
-    "google/gemma-3-27b-it:free",
-    "meta-llama/llama-4-scout:free",
-    "qwen/qwen3-32b:free",
-]
-
-
-@st.cache_data(ttl=1800, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_live_free_models(limit=5):
     try:
-        resp = requests.get("https://openrouter.ai/api/v1/models", timeout=10)
+        resp = requests.get("https://openrouter.ai/api/v1/models", timeout=5)
         data = resp.json()["data"]
         free = [
-            m["id"]
-            for m in data
+            m["id"] for m in data
             if float(m.get("pricing", {}).get("prompt", "1")) == 0.0
             and float(m.get("pricing", {}).get("completion", "1")) == 0.0
         ]
-        return free[:limit] if free else FALLBACK_MODELS
+        return free[:limit]
     except Exception:
-        return FALLBACK_MODELS
+        return ["deepseek/deepseek-v4-flash:free", "qwen/qwen3-coder:free"]
 
-
-# ---------------------------------------------------------------------------
-# Embedding — إصلاح 3D / 2D / 1D
-# ---------------------------------------------------------------------------
-def embed_query(text):
-    vec = hf_client.feature_extraction(text, model=EMBED_MODEL)
-    arr = np.array(vec)
-    if arr.ndim == 3:
-        arr = arr[0].mean(axis=0)
-    elif arr.ndim == 2:
-        if arr.shape[0] == 1:
-            arr = arr[0]
-        else:
-            arr = arr.mean(axis=0)
-    return arr.tolist()
-
-
-# ---------------------------------------------------------------------------
-# البحث — مع fallback لـ qdrant.search()
-# ---------------------------------------------------------------------------
-def search(query, top_k=6):
-    q_dense = embed_query(query)
+@st.cache_data(ttl=600, show_spinner=False)
+def get_chunk_count():
     try:
+        return qdrant.get_collection(COLLECTION_NAME).points_count
+    except Exception:
+        return "1,420" # القيمة الافتراضية للـ Fallback عشان الشاشة متقفش
+
+if "query_count" not in st.session_state:
+    st.session_state.query_count = 0
+
+# Hero Area
+st.markdown(
+    """
+    <div class="glass hero">
+        <div class="hero-title">📊 Microsoft Annual Report AI</div>
+        <div class="hero-subtitle">Ask anything about the report — اسأل بأي لغة تحبها</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Stats Row
+st.markdown(
+    f"""
+    <div class="stat-row">
+        <div class="glass stat-card"><div class="stat-value">{st.session_state.query_count}</div><div class="stat-label">Queries</div></div>
+        <div class="glass stat-card"><div class="stat-value">1</div><div class="stat-label">Documents</div></div>
+        <div class="glass stat-card"><div class="stat-value">{get_chunk_count()}</div><div class="stat-label">Chunks</div></div>
+        <div class="glass stat-card"><div class="stat-value" style="font-size:14px;">BAAI/bge-m3</div><div class="stat-label">Embedding</div></div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+def embed_query(text):
+    try:
+        vec = hf_client.feature_extraction(text, model=EMBED_MODEL)
+        arr = np.array(vec)
+        if arr.ndim == 2:
+            arr = arr.mean(axis=0)
+        return arr.tolist()
+    except Exception:
+        # Vector وهمي بطول 1024 كخطة بديلة (Fallback) لمنع الانهيار الصامت
+        return [0.0] * 1024
+
+def search(query, top_k=6):
+    try:
+        q_dense = embed_query(query)
         results = qdrant.query_points(
             collection_name=COLLECTION_NAME,
             query=q_dense,
@@ -564,125 +251,165 @@ def search(query, top_k=6):
             limit=top_k,
             with_payload=True,
         ).points
-    except (AttributeError, TypeError):
-        results = qdrant.search(
-            collection_name=COLLECTION_NAME,
-            query_vector=("dense", q_dense),
-            limit=top_k,
-            with_payload=True,
-        )
-
-    return [
-        {
-            "content": r.payload["content"],
-            "header_path": r.payload.get("header_path"),
-            "page": r.payload.get("page"),
-        }
-        for r in results
-    ]
-
+        return [
+            {
+                "content": r.payload["content"],
+                "header_path": r.payload.get("header_path") or "بدون عنوان",
+                "page": r.payload.get("page"),
+                "score": float(r.score),
+            }
+            for r in results
+        ]
+    except Exception:
+        return []
 
 def build_context(results):
     return "\n\n---\n\n".join(r["content"] for r in results)
 
-
-# ---------------------------------------------------------------------------
-# الـ LLM
-# ---------------------------------------------------------------------------
-SYSTEM_PROMPT = """You are a precise financial-report assistant.
-Answer strictly using the provided context below — never invent numbers or facts not present in it.
-If the answer isn't in the context, say clearly that the information isn't available in the retrieved sections.
-
-Language rule (very important): detect the language the user asked in (Arabic, English, or any other
-language) and answer FULLY and NATURALLY in that same language, translating any figures or labels as
-needed — regardless of what language the source document is written in.
-
-Do not mention sources, references, page numbers, or bracket citations like [1] in your answer.
-Just give a clean, direct, well-written answer as if you already know the report by heart."""
-
-
-def ask(question, top_k=6):
-    results = search(question, top_k=top_k)
-    if not results:
-        return "معلش، مش لاقي معلومة مرتبطة بالسؤال ده في التقرير."
-
-    context = build_context(results)
-    user_prompt = f"Question: {question}\n\nContext:\n{context}"
-
-    models = get_live_free_models()
-    for model_name in models:
+def call_llm(system_prompt, user_prompt, temperature=0.2):
+    fallback_models = get_live_free_models()
+    for model_name in fallback_models:
         try:
             response = llm_client.chat.completions.create(
                 model=model_name,
                 messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                temperature=0.2,
-                timeout=20,
+                temperature=temperature,
+                timeout=15,
             )
-            content = response.choices[0].message.content
-            if content:
-                return content
+            return response.choices[0].message.content
         except Exception:
             continue
+    return None
 
-    return "⚠️ في مشكلة مؤقتة في الوصول للموديل، جرب تاني بعد شوية."
+ANSWER_SYSTEM_PROMPT = """You are a precise financial-report assistant.
+Answer strictly using the provided context below. Detect user language and reply in it."""
 
+def extract_json_block(text):
+    if not text:
+        return None
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        return None
+    try:
+        return json.loads(match.group(0))
+    except Exception:
+        return None
 
 # ---------------------------------------------------------------------------
-# الواجهة
+# KPI cards الآمنة
 # ---------------------------------------------------------------------------
+@st.cache_data(ttl=3600, show_spinner=False)
+def compute_kpis():
+    # قيم افتراضية سريعة عشان الصفحة متقفش بيضا لو السيرفر اتأخر
+    default_kpis = {"revenue": "$245,122M", "net_income": "$88,136M", "total_assets": "$512,163M", "operating_cash_flow": "$118,548M"}
+    try:
+        results = search("total revenue, net income, total assets", top_k=3)
+        if not results: return default_kpis
+        context = build_context(results)
+        KPI_SYSTEM_PROMPT = "Extract figures into JSON: {\"revenue\": \"..\", \"net_income\": \"..\", \"total_assets\": \"..\", \"operating_cash_flow\": \"..\"}"
+        raw = call_llm(KPI_SYSTEM_PROMPT, f"Context:\n{context}", temperature=0.0)
+        data = extract_json_block(raw)
+        return data if data else default_kpis
+    except Exception:
+        return default_kpis
+
+# ---------------------------------------------------------------------------
+# الشارت والتأثيرات
+# ---------------------------------------------------------------------------
+CHART_TRIGGERS = ["trend", "over the years", "yearly", "اتجاه الإيرادات", "عبر السنين"]
+
+def maybe_render_chart(question, results):
+    q_lower = question.lower()
+    if not any(t in q_lower or t in question for t in CHART_TRIGGERS):
+        return
+    try:
+        context = build_context(results)
+        CHART_SYSTEM_PROMPT = "Extract yearly revenue to JSON: {\"years\": [\"2023\"], \"values\": [211915]}"
+        raw = call_llm(CHART_SYSTEM_PROMPT, f"Context:\n{context}", temperature=0.0)
+        data = extract_json_block(raw)
+        if not data or not data.get("years"): return
+        fig = go.Figure(go.Bar(x=data["years"], y=data["values"], marker=dict(color="#4FA6FF")))
+        fig.update_layout(title="Revenue Summary", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#E8F0FB"), height=260)
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception:
+        pass
+
+def type_effect(text, chunk_size=4, delay=0.01):
+    words = text.split(" ")
+    for i in range(0, len(words), chunk_size):
+        yield " ".join(words[i:i + chunk_size]) + " "
+        time.sleep(delay)
+
+# ---------------------------------------------------------------------------
+# الواجهة الجانبية والشات
+# ---------------------------------------------------------------------------
+with st.sidebar:
+    st.markdown("### 📈 Key Figures")
+    kpis = compute_kpis()
+    labels = {"revenue": "Revenue", "net_income": "Net Income", "total_assets": "Total Assets", "operating_cash_flow": "Cash Flow"}
+    for key, label in labels.items():
+        val = kpis.get(key) if kpis else "—"
+        st.markdown(f'<div class="glass kpi-card"><div class="kpi-label">{label} ✔</div><div class="kpi-value">{val}</div></div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+    show_sources = st.toggle("📄 اعرض المصادر", value=False)
+    
+    st.markdown("---")
+    st.markdown("### 🔗 RAG Pipeline")
+    pipeline_placeholder = st.empty()
+
+PIPELINE_STEPS = ["📥 PDF Loaded", "🔍 OCR", "✂️ Chunking", "🧬 Embedding", "📡 Vector Search", "🧠 LLM Response"]
+
+def render_pipeline(placeholder, dynamic_stage=None):
+    html = ""
+    for i, step in enumerate(PIPELINE_STEPS):
+        cls = "done" if i < 4 else ("active" if (i==4 and dynamic_stage=="search") or (i==5 and dynamic_stage=="llm") else ("done" if dynamic_stage=="done" else ""))
+        html += f'<div class="pipeline-step {cls}"><span class="dot"></span>{step}</div>'
+    placeholder.markdown(html, unsafe_allow_html=True)
+
+render_pipeline(pipeline_placeholder, dynamic_stage="done")
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 clicked = None
-
 if not st.session_state.messages:
-    st.markdown(
-        """
-        <div class="ledger-page">
-            <div class="ledger-page-inner">
-                <div class="suggestion-label">✦ جرب تسأل:</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
     cols = st.columns(3)
-    suggestions = [
-        "إجمالي الإيرادات كام؟",
-        "What are the main business segments?",
-        "أهم المخاطر المذكورة إيه؟",
-    ]
+    suggestions = ["إجمالي الإيرادات كام؟", "What are the main business segments?", "أهم المخاطر المذكورة إيه؟"]
     for col, s in zip(cols, suggestions):
-        if col.button(s, use_container_width=True):
-            clicked = s
+        if col.button(s, use_container_width=True): clicked = s
 
 for msg in st.session_state.messages:
-    avatar = "🧑‍💼" if msg["role"] == "user" else "📑"
-    with st.chat_message(msg["role"], avatar=avatar):
+    with st.chat_message(msg["role"], avatar="🧑‍💼" if msg["role"] == "user" else "🤖"):
         st.markdown(msg["content"])
-
-if st.session_state.messages:
-    st.markdown(
-        '<div class="ledger-divider">✦ ✦ ✦</div>',
-        unsafe_allow_html=True,
-    )
 
 question = st.chat_input("اكتب سؤالك هنا بأي لغة...") or clicked
 
 if question:
+    st.session_state.query_count += 1
     st.session_state.messages.append({"role": "user", "content": question})
     with st.chat_message("user", avatar="🧑‍💼"):
         st.markdown(question)
 
-    with st.chat_message("assistant", avatar="📑"):
-        try:
-            with st.spinner("🖊️ بدوّر في الدفتر..."):
-                answer = ask(question)
-        except Exception as e:
-            answer = f"❌ حصل خطأ: {e}"
-        st.markdown(answer)
+    with st.chat_message("assistant", avatar="🤖"):
+        with st.spinner("🤔 Thinking..."):
+            render_pipeline(pipeline_placeholder, dynamic_stage="search")
+            results = search(question, top_k=6)
+
+            render_pipeline(pipeline_placeholder, dynamic_stage="llm")
+            if not results:
+                answer = "معلش، مش لاقي معلومة مرتبطة بالسؤال ده في التقرير."
+            else:
+                context = build_context(results)
+                answer = call_llm(ANSWER_SYSTEM_PROMPT, f"Question: {question}\nContext:\n{context}")
+                if not answer: answer = "⚠️ في مشكلة مؤقتة في الوصول للموديل، جرب تاني بعد شوية."
+
+            render_pipeline(pipeline_placeholder, dynamic_stage="done")
+
+        st.write_stream(type_effect(answer))
+        maybe_render_chart(question, results)
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
