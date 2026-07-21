@@ -453,11 +453,12 @@ with st.sidebar:
         '</div></div>'
     )
     st.markdown(suggestions_html, unsafe_allow_html=True)
-
+    
+    st.markdown("<div style='height:14px;'></div>", unsafe_allow_html=True)
     show_sources = st.toggle("📄 Show Sources", value=True)
 
     st.markdown(
-        '<div style="text-align:center; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08);">'
+        '<div style="text-align:center; margin-top:28px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.08);">'
         '<span style="background: linear-gradient(90deg, #7FD4FF, #38BDF8, #A98CFF); '
         '-webkit-background-clip: text; background-clip: text; color: transparent; '
         'font-size:12.5px; font-weight:700; letter-spacing:0.3px; '
