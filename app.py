@@ -41,8 +41,11 @@ st.markdown(
         color: #F8FAFC !important;
     }
 
-    /* تلوين شريط التمرير والحواف الإضافية السفلى */
-    [data-testid="stBottomBlockContainer"] {
+    /* تلوين شريط التمرير والحواف الإضافية السفلى — منع أي خلفية بيضة تحت خانة الكتابة */
+    [data-testid="stBottom"],
+    [data-testid="stBottom"] > div,
+    [data-testid="stBottomBlockContainer"],
+    [data-testid="stBottomBlockContainer"] > div {
         background: transparent !important;
     }
 
