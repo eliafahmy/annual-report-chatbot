@@ -52,6 +52,8 @@ st.markdown(
         margin-left: auto !important;
         margin-right: auto !important;
         padding-top: 1.5rem !important;
+        padding-left: 2cm !important;
+        padding-right: 2cm !important;
     }
     [data-testid="stChatInput"] {
         max-width: 820px !important;
@@ -83,16 +85,23 @@ st.markdown(
     }
 
     /* تفريد أقسام الشريط الجانبي على طول ارتفاع الصفحة كله، من غير أي اسكرول */
-    [data-testid="stSidebarUserContent"] {
+    [data-testid="stSidebarUserContent"],
+    [data-testid="stSidebarContent"] {
         height: 100vh !important;
+        min-height: 100vh !important;
         overflow: hidden !important;
-        padding-bottom: 1.2rem !important;
+        padding-bottom: 0.8rem !important;
+        display: flex !important;
+        flex-direction: column !important;
     }
-    [data-testid="stSidebarUserContent"] > [data-testid="stVerticalBlock"] {
+    [data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"],
+    [data-testid="stSidebarContent"] [data-testid="stVerticalBlock"] {
         height: 100% !important;
+        flex: 1 1 auto !important;
         display: flex !important;
         flex-direction: column !important;
         justify-content: space-between !important;
+        gap: 0 !important;
     }
 
     /* كروت الزجاج الاحترافية (Glassmorphism) */
