@@ -92,22 +92,22 @@ st.markdown(
 
     /* كروت المؤشرات الجانبية */
     .kpi-box {
-        padding: 14px;
-        margin-bottom: 12px;
+        padding: 8px 12px;
+        margin-bottom: 6px;
         background: rgba(255, 255, 255, 0.04);
         border-left: 4px solid #38BDF8;
         border-radius: 6px;
     }
-    .kpi-title { font-size: 12px; color: #E2E8F0 !important; font-weight: 600; text-transform: uppercase; }
-    .kpi-val { font-size: 20px; font-weight: 700; color: #38BDF8 !important; margin-top: 2px; }
+    .kpi-title { font-size: 10.5px; color: #E2E8F0 !important; font-weight: 600; text-transform: uppercase; }
+    .kpi-val { font-size: 16px; font-weight: 700; color: #38BDF8 !important; margin-top: 1px; }
 
     /* عناصر الـ RAG Pipeline الجانبية */
     .pipeline-step {
-        padding: 8px 12px;
-        margin-bottom: 6px;
+        padding: 4px 10px;
+        margin-bottom: 3px;
         background: rgba(255, 255, 255, 0.02);
         border-radius: 6px;
-        font-size: 13px;
+        font-size: 11.5px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -136,22 +136,44 @@ st.markdown(
     }
 
     /* تعديل شامل للـ Input وتغيير لون الخط أثناء الكتابة ليكون أبيض ناصع وواضح جداً */
-    div[data-testid="stChatInput"] {
+    div[data-testid="stChatInput"],
+    div[data-testid="stChatInput"] > div,
+    div[data-testid="stChatInput"] section {
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
         border-radius: 24px !important;
         border: 1px solid rgba(56, 189, 248, 0.3) !important;
         background: #1e293b !important;
     }
-    
-    div[data-testid="stChatInput"] textarea {
+
+    div[data-testid="stChatInput"] textarea,
+    div[data-testid="stChatInput"] textarea * {
         color: #FFFFFF !important;
+        -webkit-text-fill-color: #FFFFFF !important;
         font-size: 15px !important;
+        background: transparent !important;
     }
-    
+
     /* تغيير لون الـ Placeholder (النص المؤقت المكتوب بالداخل) */
     div[data-testid="stChatInput"] textarea::placeholder {
         color: #94A3B8 !important;
+        -webkit-text-fill-color: #94A3B8 !important;
     }
+
+    /* وضوح خط نص الإجابات جوه فقاعات الشات (كان باهت) */
+    [data-testid="stChatMessageContent"],
+    [data-testid="stChatMessageContent"] p,
+    [data-testid="stChatMessageContent"] li,
+    [data-testid="stChatMessageContent"] span {
+        color: #F1F5F9 !important;
+        font-size: 15.5px !important;
+        line-height: 1.75 !important;
+        font-family: 'Segoe UI', 'Tajawal', sans-serif !important;
+    }
+
+    [data-testid="stSidebar"] h3 { margin: 6px 0 4px 0 !important; font-size: 15px !important; }
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.35rem !important; }
+    [data-testid="stSidebar"] .stMarkdown { margin-bottom: 0 !important; }
+
     /* عناوين المحتوى الرئيسي (كانت باهتة جدًا على الخلفية الغامقة) */
     .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5,
     .stApp [data-testid="stMarkdownContainer"] h3,
@@ -370,18 +392,19 @@ with st.sidebar:
         value = kpis.get(key) if kpis else None
         display_value = value if value else "غير متاح"
         st.markdown(f'<div class="kpi-box"><div class="kpi-title">{label}</div><div class="kpi-val">{display_value}</div></div>', unsafe_allow_html=True)
-    st.caption("الأرقام دي مستخرجة مباشرة من التقرير، مش ثابتة.")
-    
-    st.markdown("---")
+
     st.markdown("### 🔄 RAG Pipeline Status")
     pipeline_placeholder = st.empty()
 
-    st.markdown("---")
     st.markdown("### 💡 Suggested Questions")
     st.write("• What is the total revenue for FY25?\n\n• Show me the revenue trend over the years.\n\n• Summarize the performance of Intelligent Cloud.")
 
-    st.markdown("---")
-    show_sources = st.toggle("📄 اعرض مصادر الإجابة", value=True)
+    show_sources = st.toggle("📄 Show Sources", value=True)
+
+    st.markdown(
+        '<div style="text-align:center; color:#7FD4FF; font-size:12px; font-weight:600; margin-top:14px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08);">Built by Elia Fahmy</div>',
+        unsafe_allow_html=True,
+    )
 
 PIPELINE_STEPS = ["PDF Loaded", "OCR Processed", "Semantic Chunking", "Vector Embedding", "Vector Search Retrieval", "LLM Response"]
 
@@ -413,12 +436,12 @@ render_pipeline(pipeline_placeholder, active_stage=None)
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-for msg in st.session_state.messages:
+for msg_idx, msg in enumerate(st.session_state.messages):
     avatar_icon = "🧑‍💼" if msg["role"] == "user" else "🤖"
     with st.chat_message(msg["role"], avatar=avatar_icon):
         st.markdown(msg["content"])
         if "chart" in msg:
-            st.plotly_chart(msg["chart"], use_container_width=True)
+            st.plotly_chart(msg["chart"], use_container_width=True, key=f"chart_history_{msg_idx}")
         if "sources" in msg and show_sources:
             for src in msg["sources"]:
                 st.markdown(
@@ -513,7 +536,7 @@ if question:
                         margin=dict(l=20, r=20, t=40, b=20),
                         height=300
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, use_container_width=True, key=f"chart_live_{st.session_state.query_count}")
                     chart_obj = fig
                 # لو مفيش سلسلة سنوات حقيقية واضحة في التقرير، مبنعرضش شارت مُلفَّق —
                 # أحسن نسكت من إننا نوري رقم غلط.
