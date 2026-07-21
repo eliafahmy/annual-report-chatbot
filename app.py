@@ -225,7 +225,8 @@ def clean_snippet(text, max_len=280):
     يبان كنص عادي مقروء في كارت المصدر بدل جدول مبعثر."""
     if not text:
         return ""
-    cleaned = re.sub(r"\|", " ", text)
+    cleaned = re.sub(r"\*\*", "", text)
+    cleaned = re.sub(r"\|", " ", cleaned)
     cleaned = re.sub(r"-{2,}", " ", cleaned)
     cleaned = re.sub(r"\s{2,}", " ", cleaned).strip()
     return cleaned[:max_len]
@@ -379,6 +380,9 @@ with st.sidebar:
     st.markdown("### 💡 Suggested Questions")
     st.write("• What is the total revenue for FY25?\n\n• Show me the revenue trend over the years.\n\n• Summarize the performance of Intelligent Cloud.")
 
+    st.markdown("---")
+    show_sources = st.toggle("📄 اعرض مصادر الإجابة", value=True)
+
 PIPELINE_STEPS = ["PDF Loaded", "OCR Processed", "Semantic Chunking", "Vector Embedding", "Vector Search Retrieval", "LLM Response"]
 
 
@@ -415,7 +419,7 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
         if "chart" in msg:
             st.plotly_chart(msg["chart"], use_container_width=True)
-        if "sources" in msg:
+        if "sources" in msg and show_sources:
             for src in msg["sources"]:
                 st.markdown(
                     f"""
@@ -515,19 +519,31 @@ if question:
                 # أحسن نسكت من إننا نوري رقم غلط.
 
             # عرض الـ Source Cards
-            st.markdown("#### 📄 Verification Sources")
-            for src in results:
-                st.markdown(
-                    f"""
-                    <div class="source-card">
-                        <div class="source-header"><span>📄 Document Section (Page {src['page']})</span><span>Similarity : {src['score']:.2f}</span></div>
-                        <div style="font-size:12px; color:#CBD5E1; line-height:1.5;">{clean_snippet(src['content'])}...</div>
-                    </div>
-                    """, 
-                    unsafe_allow_html=True
-                )
+            if show_sources:
+                st.markdown("#### 📄 Verification Sources")
+                for src in results:
+                    st.markdown(
+                        f"""
+                        <div class="source-card">
+                            <div class="source-header"><span>📄 Document Section (Page {src['page']})</span><span>Similarity : {src['score']:.2f}</span></div>
+                            <div style="font-size:12px; color:#CBD5E1; line-height:1.5;">{clean_snippet(src['content'])}...</div>
+                        </div>
+                        """, 
+                        unsafe_allow_html=True
+                    )
             
             msg_data = {"role": "assistant", "content": full_response, "sources": results}
             if chart_obj:
                 msg_data["chart"] = chart_obj
             st.session_state.messages.append(msg_data)
+
+    st.rerun()
+
+st.markdown(
+    """
+    <div style="text-align:center; color:#64748B; font-size:12px; margin-top:40px; padding-bottom:16px;">
+        Built by <span style="color:#7FD4FF; font-weight:600;">Elia Fahmy</span> — RAG Graduation Project
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
