@@ -215,7 +215,7 @@ st.markdown(
     }
 
     [data-testid="stSidebar"] h3 { margin: 4px 0 3px 0 !important; font-size: 13px !important; }
-    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.8rem !important; }
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.9rem !important; }
     [data-testid="stSidebar"] .stMarkdown { margin-bottom: 0 !important; }
     [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { font-size: 12px !important; margin-bottom: 2px !important; }
     section[data-testid="stSidebar"] > div { padding-top: 0.8rem !important; }
