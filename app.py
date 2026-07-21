@@ -171,7 +171,7 @@ st.markdown(
     }
 
     [data-testid="stSidebar"] h3 { margin: 6px 0 4px 0 !important; font-size: 15px !important; }
-    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.6rem !important; }
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.8rem !important; }
     [data-testid="stSidebar"] .stMarkdown { margin-bottom: 0 !important; }
 
     /* عناوين المحتوى الرئيسي (كانت باهتة جدًا على الخلفية الغامقة) */
