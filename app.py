@@ -46,15 +46,19 @@ st.markdown(
         background: transparent !important;
     }
 
-    /* تضييق عرض المحتوى الرئيسي (زي ChatGPT / Claude) بدل ما ياخد عرض الصفحة كله */
-    [data-testid="stAppViewContainer"] .main .block-container {
+    /* تضييق عرض المحتوى الرئيسي بالكامل (زي ChatGPT / Claude) — سيليكتور عام يضمن التطبيق */
+    .block-container {
         max-width: 820px !important;
         margin-left: auto !important;
         margin-right: auto !important;
         padding-top: 1.5rem !important;
     }
-    [data-testid="stBottomBlockContainer"] .block-container,
     [data-testid="stChatInput"] {
+        max-width: 820px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+    [data-testid="stChatMessage"] {
         max-width: 820px !important;
         margin-left: auto !important;
         margin-right: auto !important;
@@ -65,6 +69,10 @@ st.markdown(
         background-color: rgba(15, 23, 42, 0.9) !important;
         backdrop-filter: blur(20px);
         border-right: 1px solid rgba(255, 255, 255, 0.08);
+        width: 412px !important;
+    }
+    [data-testid="stSidebar"][aria-expanded="true"] > div:first-child {
+        width: 412px !important;
     }
     [data-testid="stSidebar"] * {
         color: #FFFFFF !important;
@@ -72,6 +80,19 @@ st.markdown(
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
         color: #38BDF8 !important;
         font-weight: 700;
+    }
+
+    /* تفريد أقسام الشريط الجانبي على طول ارتفاع الصفحة كله، من غير أي اسكرول */
+    [data-testid="stSidebarUserContent"] {
+        height: 100vh !important;
+        overflow: hidden !important;
+        padding-bottom: 1.2rem !important;
+    }
+    [data-testid="stSidebarUserContent"] > [data-testid="stVerticalBlock"] {
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
     }
 
     /* كروت الزجاج الاحترافية (Glassmorphism) */
@@ -399,27 +420,35 @@ st.markdown(
 
 # 6. الـ Sidebar الجانبي الملون
 with st.sidebar:
-    st.markdown("### 📊 Key Figures")
     kpis = compute_real_kpis()
     kpi_labels = {
         "revenue": "Revenue", "net_income": "Net Income",
         "total_assets": "Total Assets", "operating_cash_flow": "Operating Cash Flow",
     }
+    kpi_html = '<div><h3 style="margin:4px 0 6px 0 !important;">📊 Key Figures</h3>'
     for key, label in kpi_labels.items():
         value = kpis.get(key) if kpis else None
         display_value = value if value else "غير متاح"
-        st.markdown(f'<div class="kpi-box"><div class="kpi-title">{label}</div><div class="kpi-val">{display_value}</div></div>', unsafe_allow_html=True)
+        kpi_html += f'<div class="kpi-box"><div class="kpi-title">{label}</div><div class="kpi-val">{display_value}</div></div>'
+    kpi_html += '</div>'
+    st.markdown(kpi_html, unsafe_allow_html=True)
 
-    st.markdown("### 🔄 RAG Pipeline Status")
     pipeline_placeholder = st.empty()
 
-    st.markdown("### 💡 Suggested Questions")
-    st.write("• What is the total revenue for FY25?\n\n• Show me the revenue trend over the years.\n\n• Summarize the performance of Intelligent Cloud.")
+    suggestions_html = (
+        '<div><h3 style="margin:4px 0 6px 0 !important;">💡 Suggested Questions</h3>'
+        '<div style="font-size:12px; line-height:1.6;">'
+        '• What is the total revenue for FY25?<br>'
+        '• Show me the revenue trend over the years.<br>'
+        '• Summarize the performance of Intelligent Cloud.'
+        '</div></div>'
+    )
+    st.markdown(suggestions_html, unsafe_allow_html=True)
 
     show_sources = st.toggle("📄 Show Sources", value=True)
 
     st.markdown(
-        '<div style="text-align:center; margin-top:10px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08);">'
+        '<div style="text-align:center; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08);">'
         '<span style="background: linear-gradient(90deg, #7FD4FF, #38BDF8, #A98CFF); '
         '-webkit-background-clip: text; background-clip: text; color: transparent; '
         'font-size:12.5px; font-weight:700; letter-spacing:0.3px; '
@@ -433,7 +462,7 @@ PIPELINE_STEPS = ["PDF Loaded", "OCR Processed", "Semantic Chunking", "Vector Em
 def render_pipeline(placeholder, active_stage=None):
     """active_stage: None = كله جاهز (حالة سكون) | 'search' = بيدور دلوقتي |
     'llm' = بيولّد الإجابة دلوقتي | 'done' = خلص السؤال ده"""
-    html = ""
+    html = '<div><h3 style="margin:4px 0 6px 0 !important;">🔄 RAG Pipeline Status</h3>'
     for i, step in enumerate(PIPELINE_STEPS):
         if i < 4:
             state = "done"  # مراحل بناء الـ Pipeline، جاهزة دايمًا
@@ -449,6 +478,7 @@ def render_pipeline(placeholder, active_stage=None):
         else:
             icon = '<span class="pipeline-success">✔</span>'
         html += f'<div class="pipeline-step"><span>{step}</span>{icon}</div>'
+    html += '</div>'
     placeholder.markdown(html, unsafe_allow_html=True)
 
 
