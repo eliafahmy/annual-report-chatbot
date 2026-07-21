@@ -147,7 +147,7 @@ st.markdown(
 
     /* عناصر الـ RAG Pipeline الجانبية */
     .pipeline-step {
-        padding: 8px 14px;
+        padding: 12px 18px;
         margin-bottom: 2px;
         background: rgba(255, 255, 255, 0.02);
         border-radius: 6px;
