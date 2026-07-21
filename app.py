@@ -136,7 +136,7 @@ st.markdown(
 
     /* كروت المؤشرات الجانبية — مضغوطة أكتر عشان تتساوى مع طول الصفحة من غير اسكرول */
     .kpi-box {
-        padding: 8px 12px;
+        padding: 14px 18px;
         margin-bottom: 4px;
         background: rgba(255, 255, 255, 0.04);
         border-left: 4px solid #38BDF8;
@@ -147,7 +147,7 @@ st.markdown(
 
     /* عناصر الـ RAG Pipeline الجانبية */
     .pipeline-step {
-        padding: 4px 10px;
+        padding: 8px 14px;
         margin-bottom: 2px;
         background: rgba(255, 255, 255, 0.02);
         border-radius: 6px;
@@ -215,7 +215,7 @@ st.markdown(
     }
 
     [data-testid="stSidebar"] h3 { margin: 4px 0 3px 0 !important; font-size: 13px !important; }
-    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.35rem !important; }
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.8rem !important; }
     [data-testid="stSidebar"] .stMarkdown { margin-bottom: 0 !important; }
     [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { font-size: 12px !important; margin-bottom: 2px !important; }
     section[data-testid="stSidebar"] > div { padding-top: 0.8rem !important; }
