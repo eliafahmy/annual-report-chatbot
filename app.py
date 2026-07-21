@@ -92,7 +92,7 @@ st.markdown(
 
     /* كروت المؤشرات الجانبية */
     .kpi-box {
-        padding: 8px 12px;
+        padding: 12px 14px;
         margin-bottom: 6px;
         background: rgba(255, 255, 255, 0.04);
         border-left: 4px solid #38BDF8;
@@ -103,7 +103,7 @@ st.markdown(
 
     /* عناصر الـ RAG Pipeline الجانبية */
     .pipeline-step {
-        padding: 4px 10px;
+        padding: 6px 12px;
         margin-bottom: 3px;
         background: rgba(255, 255, 255, 0.02);
         border-radius: 6px;
@@ -171,7 +171,7 @@ st.markdown(
     }
 
     [data-testid="stSidebar"] h3 { margin: 6px 0 4px 0 !important; font-size: 15px !important; }
-    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.35rem !important; }
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.6rem !important; }
     [data-testid="stSidebar"] .stMarkdown { margin-bottom: 0 !important; }
 
     /* عناوين المحتوى الرئيسي (كانت باهتة جدًا على الخلفية الغامقة) */
@@ -562,11 +562,3 @@ if question:
 
     st.rerun()
 
-st.markdown(
-    """
-    <div style="text-align:center; color:#64748B; font-size:12px; margin-top:40px; padding-bottom:16px;">
-        Built by <span style="color:#7FD4FF; font-weight:600;">Elia Fahmy</span> — RAG Graduation Project
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
