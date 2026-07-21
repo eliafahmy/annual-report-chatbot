@@ -92,7 +92,7 @@ st.markdown(
 
     /* كروت المؤشرات الجانبية */
     .kpi-box {
-        padding: 12px 14px;
+        padding: 14px 18px;
         margin-bottom: 6px;
         background: rgba(255, 255, 255, 0.04);
         border-left: 4px solid #38BDF8;
