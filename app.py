@@ -46,6 +46,20 @@ st.markdown(
         background: transparent !important;
     }
 
+    /* تضييق عرض المحتوى الرئيسي (زي ChatGPT / Claude) بدل ما ياخد عرض الصفحة كله */
+    [data-testid="stAppViewContainer"] .main .block-container {
+        max-width: 820px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        padding-top: 1.5rem !important;
+    }
+    [data-testid="stBottomBlockContainer"] .block-container,
+    [data-testid="stChatInput"] {
+        max-width: 820px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
     /* إجبار نصوص الـ Sidebar بالكامل على الظهور بلون أبيض واضح جداً */
     [data-testid="stSidebar"] {
         background-color: rgba(15, 23, 42, 0.9) !important;
@@ -90,24 +104,24 @@ st.markdown(
         text-align: center;
     }
 
-    /* كروت المؤشرات الجانبية */
+    /* كروت المؤشرات الجانبية — مضغوطة أكتر عشان تتساوى مع طول الصفحة من غير اسكرول */
     .kpi-box {
-        padding: 14px 18px;
-        margin-bottom: 6px;
+        padding: 8px 12px;
+        margin-bottom: 4px;
         background: rgba(255, 255, 255, 0.04);
         border-left: 4px solid #38BDF8;
         border-radius: 6px;
     }
-    .kpi-title { font-size: 10.5px; color: #E2E8F0 !important; font-weight: 600; text-transform: uppercase; }
-    .kpi-val { font-size: 16px; font-weight: 700; color: #38BDF8 !important; margin-top: 1px; }
+    .kpi-title { font-size: 9.5px; color: #E2E8F0 !important; font-weight: 600; text-transform: uppercase; }
+    .kpi-val { font-size: 14px; font-weight: 700; color: #38BDF8 !important; margin-top: 1px; }
 
     /* عناصر الـ RAG Pipeline الجانبية */
     .pipeline-step {
-        padding: 6px 12px;
-        margin-bottom: 3px;
+        padding: 4px 10px;
+        margin-bottom: 2px;
         background: rgba(255, 255, 255, 0.02);
         border-radius: 6px;
-        font-size: 11.5px;
+        font-size: 10.5px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -170,9 +184,12 @@ st.markdown(
         font-family: 'Segoe UI', 'Tajawal', sans-serif !important;
     }
 
-    [data-testid="stSidebar"] h3 { margin: 6px 0 4px 0 !important; font-size: 15px !important; }
-    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.8rem !important; }
+    [data-testid="stSidebar"] h3 { margin: 4px 0 3px 0 !important; font-size: 13px !important; }
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.35rem !important; }
     [data-testid="stSidebar"] .stMarkdown { margin-bottom: 0 !important; }
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { font-size: 12px !important; margin-bottom: 2px !important; }
+    section[data-testid="stSidebar"] > div { padding-top: 0.8rem !important; }
+    [data-testid="stSidebar"] .stToggle { margin: 2px 0 !important; }
 
     /* عناوين المحتوى الرئيسي (كانت باهتة جدًا على الخلفية الغامقة) */
     .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5,
@@ -402,7 +419,11 @@ with st.sidebar:
     show_sources = st.toggle("📄 Show Sources", value=True)
 
     st.markdown(
-        '<div style="text-align:center; color:#7FD4FF; font-size:12px; font-weight:600; margin-top:14px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08);">Built by Elia Fahmy</div>',
+        '<div style="text-align:center; margin-top:10px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.08);">'
+        '<span style="background: linear-gradient(90deg, #7FD4FF, #38BDF8, #A98CFF); '
+        '-webkit-background-clip: text; background-clip: text; color: transparent; '
+        'font-size:12.5px; font-weight:700; letter-spacing:0.3px; '
+        'text-shadow: 0 0 12px rgba(56,189,248,0.35);">Built by Elia Fahmy</span></div>',
         unsafe_allow_html=True,
     )
 
@@ -561,4 +582,3 @@ if question:
             st.session_state.messages.append(msg_data)
 
     st.rerun()
-
